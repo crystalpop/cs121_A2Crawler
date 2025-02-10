@@ -1,5 +1,8 @@
 import re
 from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -15,16 +18,45 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return list()
+    if resp.status != 200 or resp.raw_response is None:
+        return []
+
+    soup = BeautifulSoup(resp.raw_response.content, "lxml")
+    links = set()  # Use set to avoid duplicate URLs
+
+    for tag in soup.find_all("a", href=True):
+        absolute_url = urljoin(url, tag["href"])
+        absolute_url = absolute_url.split("#")[0]  # Remove fragments
+        links.add(absolute_url)
+
+    return list(links)  # Convert set to list
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+    allowed_domains = {"ics.uci.edu", "cs.uci.edu", "informatics.uci.edu", "stat.uci.edu"}
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in set(["http", "https"]):
+
+        if parsed.scheme not in set(["http", "https"]) or not parsed.netloc:
             return False
+
+        if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+            return False
+
+        if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
+            return False  
+
+        if re.search(r"session|sid|track|utm_", parsed.query, re.IGNORECASE):   # ignore tracking params
+            return False  
+
+        if re.search(r"\d{4}-\d{2}-\d{2}", parsed.path) or re.search(r"date=\d{4}-\d{2}-\d{2}", parsed.query)::  # calendar pages
+            return False 
+
+        if "do=media" in parsed.query or "image=" in parsed.query:  # ignore media-related URLs
+            return False
+
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
