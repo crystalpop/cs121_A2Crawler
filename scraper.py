@@ -79,7 +79,7 @@ def is_valid(url):
             print(f'{url} has bad extension NOT VALID')
             return False
         # /people and /happening not allowed from robots.txt
-        if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0,1]) and re.match(r'^/(?:people|happening)', path):
+        if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0:1]) and re.match(r'^/(?:people|happening)', path):
             print(f'{url} contains happening or people NOT VALID')
             return False
         # /wp-admin/ disallowed for stat.uci.edu
