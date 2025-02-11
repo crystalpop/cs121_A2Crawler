@@ -56,6 +56,24 @@ def extract_next_links(url, resp):
                     result.add(urldefrag(abs_url)[0]) # defragment and add to result
     return list(result)
 
+
+def repeated_segments(path):
+            # Split the path into non-empty segments
+        segments = [seg for seg in path.split('/') if seg]
+
+        # Check for excessive consecutive repetition
+        max_allowed_reps = 3 
+        current_rep = 1  # count current consecutive repetition
+        for i in range(1, len(segments)):
+            if segments[i] == segments[i - 1]:
+                current_rep += 1
+            else:
+                current_rep = 1  # reset count if segment changes
+            if current_rep > max_allowed_reps:
+                return True
+
+        return False
+
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
@@ -90,9 +108,8 @@ def is_valid(url):
             # print(f'{url} contains calendar NOT VALID')
             return False 
         
-        if "do=media" in query or "image=" in query or "do=diff" in query:  # ignore media-related URLs and diff pages
-            # print(f'{url} is media NOT VALID')
-            return False
+        if re.search(r"(tab_files=|do=media|image=|do=diff)", query): # media/dynamic/diff pages
+            return False 
         
         if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
             return False  
@@ -100,6 +117,9 @@ def is_valid(url):
         if re.search(r"session|sid|track|utm_", parsed.query, re.IGNORECASE):   # ignore tracking params
             return False
         # /people and /happening not allowed from robots.txt
+        if repeated_segments(path):
+            return False
+
         if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0:1]) and re.match(r'^/(?:people|happening)', path):
             # print(f'{url} contains happening or people NOT VALID')
             return False
