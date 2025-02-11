@@ -1,9 +1,7 @@
 import re
 from urllib.parse import urlparse, urldefrag
 from bs4 import BeautifulSoup
-import PartA as A
-import PartB as B
-# import lxml
+
 """
 *.ics.uci.edu/*
 User-agent: *
@@ -61,7 +59,7 @@ def scraper(url, resp):
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
-    result = []
+    result = set()
     # Implementation required.
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
@@ -71,11 +69,12 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    html_doc = resp.raw_response.content
-    soup = BeautifulSoup(html_doc, "lxml")
-    for link in soup.find_all('a'):
-        result.append(urldefrag(link.get('href'))[0])
-    return result
+    if (resp.status == 200 or (resp.status >= 300 and resp.status < 400)) and resp.raw_response:
+        html_doc = resp.raw_response.content
+        soup = BeautifulSoup(html_doc, "lxml")
+        for link in soup.find_all('a'):
+            result.add(urldefrag(link.get('href'))[0])
+    return list(result)
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
