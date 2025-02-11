@@ -45,12 +45,14 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     if (resp.status == 200 or (resp.status >= 300 and resp.status < 400)) and resp.raw_response:
         html_doc = resp.raw_response.content
-        soup = BeautifulSoup(html_doc, "lxml")
-        for a in soup.find_all('a'):
-            href = a.get('href')
-            # resolve relative to absolute url
-            abs_url = urljoin(url, href)
-            result.add(urldefrag(abs_url)[0])
+        # make sure page has content
+        if len(html_doc) > 0:
+            soup = BeautifulSoup(html_doc, "lxml")
+            for a in soup.find_all('a'):
+                href = a.get('href')
+                # resolve relative to absolute url
+                abs_url = urljoin(url, href)
+                result.add(urldefrag(abs_url)[0])
     return list(result)
 
 def is_valid(url):
@@ -60,10 +62,12 @@ def is_valid(url):
     try:
         
         parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        path = parsed.path.lower()
         if parsed.scheme not in set(["http", "https"]):
-            print(f"{url} NOT VALID")
+            print(f"{url} bad scheme NOT VALID")
             return False
-        if any(re.match(pattern, parsed.netloc.lower()) for pattern in ALLOWED_DOMAINS) and not re.match(
+        if not (any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS) and not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
@@ -71,12 +75,23 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
-            print(f"{url} IS VALID")
-            return True
-        else:
-            print(f"{url} NOT VALID")
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())):
+            print(f'{url} has bad extension NOT VALID')
             return False
+        # /people and /happening not allowed from robots.txt
+        if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0,1]) and re.match(r'^/(?:people|happening)', path):
+            print(f'{url} contains happening or people NOT VALID')
+            return False
+        # /wp-admin/ disallowed for stat.uci.edu
+        if re.match(ALLOWED_DOMAINS[3], domain) and re.match(r'^/wp-admin/', path):
+            print(f'{url} wp-admin disallowed NOT VALID')
+            return False
+        if re.match(ALLOWED_DOMAINS[2], domain) and re.match(r'^/(?:wp-admin|research)/', path):
+            print(f'{url} wp-admin or research disallowed NOT VALID')
+            return False
+
+        return True
+
 
     except TypeError:
         print ("TypeError for ", parsed)
