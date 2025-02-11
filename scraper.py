@@ -1,5 +1,6 @@
 import re
 from urllib.parse import urlparse, urldefrag, urljoin
+from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 
 """
@@ -11,6 +12,15 @@ http://vision.ics.uci.edu, 10 (not the actual number here)
 
 
 """
+RFP = RobotFileParser()
+USER_AGENT = "IR UW25 93481481"
+
+ROBOT_FILES = [
+    "https://www.ics.uci.edu/robots.txt",
+    "https://www.cs.uci.edu/robots.txt",
+    "https://www.informatics.uci.edu/robots.txt",
+    "https://www.stat.uci.edu/robots.txt"
+]
 
 ALLOWED_DOMAINS = [
     r'.*\.ics\.uci\.edu',
@@ -87,6 +97,7 @@ def extract_next_links(url, resp):
                     result.add(urldefrag(abs_url)[0]) # defragment and add to result
     return list(result)
 
+#TODO: update this, missed points
 def tokenize(file_name):
     token_list = []
     with open(file_name, 'r') as file:
@@ -97,6 +108,7 @@ def tokenize(file_name):
             token_list.extend(re.findall(r"[0-9a-zA-Z]+", content))
     return token_list
 
+#TODO: update this, missed points
 def computeWordFrequencies(token_list):
     # empty dict
     token_frequencies = {}
@@ -107,6 +119,7 @@ def computeWordFrequencies(token_list):
         else:
             token_frequencies[token] += 1
     return token_frequencies
+
 
 def process_info(url, resp):
 
@@ -243,6 +256,26 @@ def is_valid(url):
             # print(f"{url} bad domain NOT VALID")
             return False
         
+
+        # robot.txt filters
+        robot_file = None
+        if re.match(ALLOWED_DOMAINS[0], domain):
+            robot_file = ROBOT_FILES[0]
+        elif re.match(ALLOWED_DOMAINS[1], domain):
+            robot_file = ROBOT_FILES[1]
+        elif re.match(ALLOWED_DOMAINS[2], domain):
+            robot_file = ROBOT_FILES[2]
+        elif re.match(ALLOWED_DOMAINS[3], domain):
+            robot_file = ROBOT_FILES[3]
+
+        RFP.set_url(robot_file)
+        RFP.read()
+        
+        if not RFP.can_fetch(USER_AGENT, url):
+            print(f"{url} DISALLOWED IN {robot_file}")
+            return False
+        
+
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -269,18 +302,6 @@ def is_valid(url):
             return False
         
         if repeated_segments(path):
-            return False
-        # /people and /happening not allowed from robots.txt
-        if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0:1]) and re.match(r'^/(?:people|happening)', path):
-            # print(f'{url} contains happening or people NOT VALID')
-            return False
-        # /wp-admin/ disallowed for stat.uci.edu
-        if re.match(ALLOWED_DOMAINS[3], domain) and re.match(r'^/wp-admin/', path):
-            # print(f'{url} wp-admin disallowed NOT VALID')
-            return False
-        
-        if re.match(ALLOWED_DOMAINS[2], domain) and re.match(r'^/(?:wp-admin|research)/', path):
-            # print(f'{url} wp-admin or research disallowed NOT VALID')
             return False
 
         return True
