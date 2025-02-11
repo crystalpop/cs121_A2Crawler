@@ -48,11 +48,12 @@ def extract_next_links(url, resp):
         # make sure page has content
         if len(html_doc) > 0:
             soup = BeautifulSoup(html_doc, "lxml")
-            for a in soup.find_all('a'):
-                href = a.get('href')
-                # resolve relative to absolute url
-                abs_url = urljoin(url, href)
-                result.add(urldefrag(abs_url)[0])
+            text = soup.get_text()
+            if len(text) > 250: # TODO: what should be the threshold? if not enough text, skip it
+                for a in soup.find_all('a'):
+                    href = a.get('href')
+                    abs_url = urljoin(url, href) # resolve possible relative url to absolute url
+                    result.add(urldefrag(abs_url)[0]) # defragment and add to result
     return list(result)
 
 def is_valid(url):
@@ -66,9 +67,14 @@ def is_valid(url):
         path = parsed.path.lower()
         query = parsed.query.lower()
         if parsed.scheme not in set(["http", "https"]):
-            print(f"{url} bad scheme NOT VALID")
+            # print(f"{url} bad scheme NOT VALID")
             return False
-        if not (any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS) and not re.match(
+        
+        if not any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS):
+            # print(f"{url} bad domain NOT VALID")
+            return False
+        
+        if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
@@ -76,22 +82,34 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())):
-            print(f'{url} has bad extension NOT VALID')
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+            # print(f'{url} has bad extension NOT VALID')
             return False
+        
         if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query):  # calendar pages
-            print(f'{url} contains calendar NOT VALID')
+            # print(f'{url} contains calendar NOT VALID')
             return False 
+        
+        if "do=media" in query or "image=" in query or "do=diff" in query:  # ignore media-related URLs and diff pages
+            # print(f'{url} is media NOT VALID')
+            return False
+        
+        if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
+            return False  
+
+        if re.search(r"session|sid|track|utm_", parsed.query, re.IGNORECASE):   # ignore tracking params
+            return False
         # /people and /happening not allowed from robots.txt
         if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0:1]) and re.match(r'^/(?:people|happening)', path):
-            print(f'{url} contains happening or people NOT VALID')
+            # print(f'{url} contains happening or people NOT VALID')
             return False
         # /wp-admin/ disallowed for stat.uci.edu
         if re.match(ALLOWED_DOMAINS[3], domain) and re.match(r'^/wp-admin/', path):
-            print(f'{url} wp-admin disallowed NOT VALID')
+            # print(f'{url} wp-admin disallowed NOT VALID')
             return False
+        
         if re.match(ALLOWED_DOMAINS[2], domain) and re.match(r'^/(?:wp-admin|research)/', path):
-            print(f'{url} wp-admin or research disallowed NOT VALID')
+            # print(f'{url} wp-admin or research disallowed NOT VALID')
             return False
 
         return True
