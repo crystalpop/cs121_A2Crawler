@@ -64,6 +64,7 @@ def is_valid(url):
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
         path = parsed.path.lower()
+        query = parsed.query.lower()
         if parsed.scheme not in set(["http", "https"]):
             print(f"{url} bad scheme NOT VALID")
             return False
@@ -78,6 +79,9 @@ def is_valid(url):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())):
             print(f'{url} has bad extension NOT VALID')
             return False
+        if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query):  # calendar pages
+            print(f'{url} contains calendar NOT VALID')
+            return False 
         # /people and /happening not allowed from robots.txt
         if any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS[0:1]) and re.match(r'^/(?:people|happening)', path):
             print(f'{url} contains happening or people NOT VALID')
