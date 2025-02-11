@@ -1,39 +1,8 @@
 import re
-from urllib.parse import urlparse, urldefrag
+from urllib.parse import urlparse, urldefrag, urljoin
 from bs4 import BeautifulSoup
 
 """
-*.ics.uci.edu/*
-User-agent: *
-Disallow: /people
-Disallow: /happening
-
-*.cs.uci.edu/*
-User-agent: *
-Disallow: /people
-Disallow: /happening
-
-*.informatics.uci.edu/*
-Disallow: /wp-admin/
-Allow: /wp-admin/admin-ajax.php
-Allow: /research/labs-centers/
-Allow: /research/areas-of-expertise/
-Allow: /research/example-research-projects/
-Allow: /research/phd-research/
-Allow: /research/past-dissertations/
-Allow: /research/masters-research/
-Allow: /research/undergraduate-research/
-Allow: /research/gifts-grants/
-Disallow: /research/
-
-*.stat.uci.edu/*
-User-agent: *
-Disallow: /wp-admin/
-Allow: /wp-admin/admin-ajax.php
-
-Sitemap: https://www.stat.uci.edu/wp-sitemap.xml
-
-
  Implement the scraper function in scraper.py. The scraper function receives a URL
 and corresponding Web response (for example, the first one will be 
 "http://www.ics.uci.edu" and the Web response will contain the page itself). 
@@ -58,6 +27,11 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
+
+"""
+source for absolute path resolution : https://blog.finxter.com/scraping-the-absolute-url-of-instead-of-the-relative-path-using-beautifulsoup/
+
+"""
 def extract_next_links(url, resp):
     result = set()
     # Implementation required.
@@ -72,8 +46,11 @@ def extract_next_links(url, resp):
     if (resp.status == 200 or (resp.status >= 300 and resp.status < 400)) and resp.raw_response:
         html_doc = resp.raw_response.content
         soup = BeautifulSoup(html_doc, "lxml")
-        for link in soup.find_all('a'):
-            result.add(urldefrag(link.get('href'))[0])
+        for a in soup.find_all('a'):
+            href = a.get('href')
+            # resolve relative to absolute url
+            abs_url = urljoin(url, href)
+            result.add(urldefrag(abs_url)[0])
     return list(result)
 
 def is_valid(url):
