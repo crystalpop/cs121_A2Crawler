@@ -3,6 +3,12 @@ from urllib.parse import urlparse, urldefrag, urljoin
 from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 
+# TODO: ASK discussion about the certificate error
+# TODO: ASK detect and avoid crawling very large files, especially if they have low information value
+# TODO: check for similarity & duplicates in extract_next_links
+# TODO: webpage content similarity repetition over a certain amount of chained pages (the threshold definition is up to you!
+# TODO: maybe have a prev variable & a similarity counter. compare current page vs prev page & if similarity is over 80?% don't crawl it. if similarity not over threshold, update prev to curr and curr to next
+
 """
 How many unique pages did you find? Uniqueness for the purposes of this assignment is ONLY established by the URL, but discarding the fragment part. So, for example, http://www.ics.uci.edu#aaa and http://www.ics.uci.edu#bbb are the same URL. Even if you implement additional methods for textual similarity detection, please keep considering the above definition of unique pages for the purposes of counting the unique pages in this assignment.
 What is the longest page in terms of the number of words? (HTML markup doesn’t count as words)
@@ -12,15 +18,34 @@ http://vision.ics.uci.edu, 10 (not the actual number here)
 
 
 """
-RFP = RobotFileParser()
+ICS_RFP = RobotFileParser()
+CS_RFP = RobotFileParser()
+# INF_RFP = RobotFileParser()
+STAT_RFP = RobotFileParser()
+print("setting robot parser urls")
+ICS_RFP.set_url("https://www.ics.uci.edu/robots.txt")
+CS_RFP.set_url("https://www.cs.uci.edu/robots.txt")
+# INF_RFP.set_url("https://www.informatics.uci.edu/robots.txt")
+STAT_RFP.set_url("https://www.stat.uci.edu/robots.txt")
+print("reading icd robot files")
+ICS_RFP.read()
+print("reading cs robot files")
+CS_RFP.read()
+# print("reading inf robot files")
+# INF_RFP.read()
+print("reading stat robot files")
+STAT_RFP.read()
+
 USER_AGENT = "IR UW25 93481481"
 
 ROBOT_FILES = [
-    "https://www.ics.uci.edu/robots.txt",
-    "https://www.cs.uci.edu/robots.txt",
-    "https://www.informatics.uci.edu/robots.txt",
-    "https://www.stat.uci.edu/robots.txt"
+    "https://ics.uci.edu/robots.txt",
+    "https://cs.uci.edu/robots.txt",
+    "https://informatics.uci.edu/robots.txt",
+    "https://stat.uci.edu/robots.txt"
 ]
+
+
 
 ALLOWED_DOMAINS = [
     r'.*\.ics\.uci\.edu',
@@ -242,38 +267,39 @@ def is_valid(url):
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
     try:
-        
+        print(f"checking validity of {url}")
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
         path = parsed.path
         query = parsed.query
 
         if parsed.scheme not in set(["http", "https"]):
-            # print(f"{url} bad scheme NOT VALID")
+            print(f"{url} bad scheme NOT VALID")
             return False
         
         if not any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS):
-            # print(f"{url} bad domain NOT VALID")
+            print(f"{url} bad domain NOT VALID")
             return False
         
 
         # robot.txt filters
-        robot_file = None
         if re.match(ALLOWED_DOMAINS[0], domain):
-            robot_file = ROBOT_FILES[0]
+            if not ICS_RFP.can_fetch(USER_AGENT, url):
+                print(f"{url} DISALLOWED IN robots")
+                return False
         elif re.match(ALLOWED_DOMAINS[1], domain):
-            robot_file = ROBOT_FILES[1]
-        elif re.match(ALLOWED_DOMAINS[2], domain):
-            robot_file = ROBOT_FILES[2]
+            if not CS_RFP.can_fetch(USER_AGENT, url):
+                print(f"{url} DISALLOWED IN robots")
+                return False
+        # elif re.match(ALLOWED_DOMAINS[2], domain):
+        #     if not INF_RFP.can_fetch(USER_AGENT, url):
+        #         print(f"{url} DISALLOWED IN robots")
+        #         return False
         elif re.match(ALLOWED_DOMAINS[3], domain):
-            robot_file = ROBOT_FILES[3]
+            if not STAT_RFP.can_fetch(USER_AGENT, url):
+                print(f"{url} DISALLOWED IN robots")
+                return False
 
-        RFP.set_url(robot_file)
-        RFP.read()
-        
-        if not RFP.can_fetch(USER_AGENT, url):
-            print(f"{url} DISALLOWED IN {robot_file}")
-            return False
         
 
         if re.match(
@@ -285,11 +311,11 @@ def is_valid(url):
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
-            # print(f'{url} has bad extension NOT VALID')
+            print(f'{url} has bad extension NOT VALID')
             return False
         
         if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query):  # calendar pages
-            # print(f'{url} contains calendar NOT VALID')
+            print(f'{url} contains calendar NOT VALID')
             return False 
         
         if re.search(r"(tab_files=|do=media|image=|do=diff)", query): # media/dynamic/diff pages
