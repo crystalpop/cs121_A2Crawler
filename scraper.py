@@ -114,7 +114,7 @@ def extract_next_links(url, resp):
         if len(html_doc) > 0:
             soup = BeautifulSoup(html_doc, "lxml")
             text = soup.get_text()
-            
+
             if "Content-Length" in resp.raw_response.headers:
                 file_bytes = int(resp.raw_response.headers["Content-Length"])
                 if file_bytes > 3000000 and len(text) < 300: #TODO: adjust threshold
@@ -208,6 +208,12 @@ def process_info(url, resp):
             if url_subdomain not in subdomain_dict:
                 subdomain_dict[url_subdomain] = set()
             subdomain_dict[url_subdomain].add(clean_url)
+
+    try:
+        with open("urllog.txt", "a") as log_file:  # Open in append mode
+            log_file.write(f"{clean_url} - Page Length: {url_word_count_dict[clean_url]} words\n")
+    except Exception as e:
+        print(f"Error writing log for {clean_url}: {e}")
     
 
 
