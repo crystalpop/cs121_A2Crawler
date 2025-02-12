@@ -3,8 +3,7 @@ from urllib.parse import urlparse, urldefrag, urljoin
 from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 
-# TODO: ASK discussion about the certificate error
-# TODO: ASK detect and avoid crawling very large files, especially if they have low information value
+
 # TODO: check for similarity & duplicates in extract_next_links
 # TODO: webpage content similarity repetition over a certain amount of chained pages (the threshold definition is up to you!
 # TODO: maybe have a prev variable & a similarity counter. compare current page vs prev page & if similarity is over 80?% don't crawl it. if similarity not over threshold, update prev to curr and curr to next
@@ -27,7 +26,7 @@ ICS_RFP.set_url("https://www.ics.uci.edu/robots.txt")
 CS_RFP.set_url("https://www.cs.uci.edu/robots.txt")
 # INF_RFP.set_url("https://www.informatics.uci.edu/robots.txt")
 STAT_RFP.set_url("https://www.stat.uci.edu/robots.txt")
-print("reading icd robot files")
+print("reading ics robot files")
 ICS_RFP.read()
 print("reading cs robot files")
 CS_RFP.read()
@@ -96,7 +95,6 @@ def scraper(url, resp):
 
 """
 source for absolute path resolution : https://blog.finxter.com/scraping-the-absolute-url-of-instead-of-the-relative-path-using-beautifulsoup/
-
 """
 def extract_next_links(url, resp):
     result = set()
@@ -111,15 +109,26 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     if (resp.status == 200 or (resp.status >= 300 and resp.status < 400)) and resp.raw_response:
         html_doc = resp.raw_response.content
+
         # make sure page has content
         if len(html_doc) > 0:
             soup = BeautifulSoup(html_doc, "lxml")
             text = soup.get_text()
-            if len(text) > 250: # TODO: what should be the threshold? if not enough text, skip it
+            
+            if "Content-Length" in resp.raw_response.headers:
+                file_bytes = int(resp.raw_response.headers["Content-Length"])
+                if file_bytes > 3000000 and len(text) < 300: #TODO: adjust threshold
+                    return []
+                
+            if len(text) > 300: # TODO: what should be the threshold? if not enough text, skip it
                 for a in soup.find_all('a'):
                     href = a.get('href')
                     abs_url = urljoin(url, href) # resolve possible relative url to absolute url
                     result.add(urldefrag(abs_url)[0]) # defragment and add to result
+
+    elif resp.status >= 600 and resp.status <= 606:
+        print(f"***********\nERROR: {resp.error}\n*************")
+
     return list(result)
 
 #TODO: update this, missed points
