@@ -55,6 +55,9 @@ stopwords = [
 
 
 def scraper(url, resp):
+    if resp.status >= 600 and resp.status <= 606:
+        print(f"CACHE ERROR AT {url}!!!!")
+        return []
     links = extract_next_links(url, resp)
     valid_links = set()
     for link in links:
@@ -79,7 +82,7 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    if (resp.status == 200 or (resp.status >= 300 and resp.status < 400)) and resp.raw_response:
+    if (resp.status >= 200 and resp.status < 400) and resp.raw_response:
         html_doc = resp.raw_response.content
 
         # make sure page has content
@@ -119,14 +122,19 @@ def extract_next_links(url, resp):
 
 
 def compute_simhash(text, bit_length=64):
-    vector = np.zeros(bit_length)
-    words = tokenize(text)
-    for word in words:
-        hash_value = hash(word) & ((1 << bit_length) - 1)
-        binary_array = np.array([1 if (hash_value >> i) & 1 else -1 for i in range(bit_length)])
-        vector += binary_array
+    try:
+        vector = np.zeros(bit_length)
+        with open("content.txt", "w") as file:
+            file.write(text)
+        words = tokenize("content.txt")
+        for word in words:
+            hash_value = hash(word) & ((1 << bit_length) - 1)
+            binary_array = np.array([1 if (hash_value >> i) & 1 else -1 for i in range(bit_length)])
+            vector += binary_array
 
-    return np.where(vector >= 0, 1, 0)
+        return np.where(vector >= 0, 1, 0)
+    except Exception as e:
+        print(f"Error saving content in simhash to file...: {e}")
 
 def hamming_distance(h1, h2):
     return np.sum(h1 != h2)
@@ -134,6 +142,7 @@ def hamming_distance(h1, h2):
 def is_near_duplicate(simhash):
     for existing_hash in simhash_set:
         if hamming_distance(np.array(existing_hash), simhash) < SIMHASH_THRESHOLD:
+            print(f"--------FOUND NEAR DUPLICATE--------")
             return True
     return False
 
@@ -342,9 +351,9 @@ def is_valid(url):
             print(f'{url} has bad extension NOT VALID')
             return False
 
-        if re.search(r"gitlab.ics.uci.edu", domain) and query:
-            print(f'{url} gitlab w/ query NOT VALID')
-            return False
+        # if re.search(r"gitlab.ics.uci.edu", domain) and query:
+        #     print(f'{url} gitlab w/ query NOT VALID')
+        #     return False
         
         if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):  # calendar pages
             print(f'{url} contains calendar NOT VALID')

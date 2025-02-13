@@ -72,13 +72,13 @@ class Worker(Thread):
             print(f"parsing {robot_responses[i].url}................")
             self.parse_robot_file(robot_responses[i], robot_parsers[i])
         
-            sitemaps = robot_parsers[i].site_maps()
-            if sitemaps:
-                print(f"REMOVING {robot_responses[i].url[:-11]}")
-                self.frontier.to_be_downloaded.remove(robot_responses[i].url[:-11])
-                for map in sitemaps:
-                    print(f"REPLACING WITH {map}")
-                    self.frontier.add_url(map)
+            # sitemaps = robot_parsers[i].site_maps()
+            # if sitemaps:
+            #     print(f"REMOVING {robot_responses[i].url[:-11]}")
+            #     self.frontier.to_be_downloaded.remove(robot_responses[i].url[:-11])
+            #     for map in sitemaps:
+            #         print(f"REPLACING WITH {map}")
+            #         self.frontier.add_url(map)
         # print(f"++++++SEEDS: {[seed for seed in self.config.seed_urls]}")
 
 
