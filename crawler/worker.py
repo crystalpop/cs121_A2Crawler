@@ -6,7 +6,6 @@ from utils import get_logger
 import scraper
 import time
 
-from bs4 import BeautifulSoup
 from urllib.robotparser import RobotFileParser
 
 
@@ -23,15 +22,12 @@ class Worker(Thread):
     def parse_robot_file(self, resp, robot_parser):
         if resp.status == 200:
             if resp.raw_response:
-                soup = BeautifulSoup(resp.raw_response.content, "lxml")
-                lines = soup.get_text().splitlines()
-                # for line in lines:
-                #     print(line)
+                # split the content into lines for the RobotFileParser to parse
+                lines = resp.raw_response.content.decode("utf-8").splitlines()
                 robot_parser.parse(lines)
-        else:
-            print(f"NO ROBOT FOR {resp.url}")
 
     def run(self):
+        # download the robots.txt files for each domain
         ics_resp = download("https://www.ics.uci.edu/robots.txt", self.config)
         cs_resp = download("https://www.cs.uci.edu/robots.txt", self.config)
         inf_resp = download("https://www.informatics.uci.edu/robots.txt", self.config)
@@ -39,6 +35,7 @@ class Worker(Thread):
 
         robot_responses = [ics_resp, cs_resp, inf_resp, stat_resp]
 
+        # create a robot file parser for each robots.txt file
         ICS_RP = RobotFileParser()
         CS_RP = RobotFileParser()
         INF_RP = RobotFileParser()
@@ -46,13 +43,19 @@ class Worker(Thread):
 
         robot_parsers = [ICS_RP, CS_RP, INF_RP, STAT_RP]
 
-        for i in range(0,4):
-            self.parse_robot_file(robot_responses[i], robot_parsers[i])
+        # parse each robots.txt file, if there are sitemaps, remove the seed and replace with sitemap
+        # TODO: is this the right idea? do i add the sitemap to the seed urls instead?
+        # for i in range(0,4):
+        #     self.parse_robot_file(robot_responses[i], robot_parsers[i])
+        
+        #     sitemaps = robot_parsers[i].site_maps()
+        #     if sitemaps:
+        #         # print(f"REMOVING {robot_responses[i].url[:-11]}")
+        #         self.config.seed_urls.remove(robot_responses[i].url[:-11])
+        #         for map in sitemaps:
+        #             self.frontier.add_url(map)
+        # print(f"++++++SEEDS: {[seed for seed in self.config.seed_urls]}")
 
-        # print(ICS_RP.can_fetch(self.config.user_agent, "https://www.cs.uci.edu/people"))
-
-        # for sitemap in STAT_RP.site_maps():
-        #     print(f"SiTEMAP: {sitemap}")
 
         while True:
             tbd_url = self.frontier.get_tbd_url()
@@ -63,6 +66,7 @@ class Worker(Thread):
             self.logger.info(
                 f"Downloaded {tbd_url}, status <{resp.status}>, "
                 f"using cache {self.config.cache_server}.")
+            # pass the robot parsers to scraper
             scraped_urls = scraper.scraper(tbd_url, resp, robot_parsers)
             for scraped_url in scraped_urls:
                 self.frontier.add_url(scraped_url)
