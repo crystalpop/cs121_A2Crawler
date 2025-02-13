@@ -45,15 +45,15 @@ class Worker(Thread):
 
         # parse each robots.txt file, if there are sitemaps, remove the seed and replace with sitemap
         # TODO: is this the right idea? do i add the sitemap to the seed urls instead?
-        # for i in range(0,4):
-        #     self.parse_robot_file(robot_responses[i], robot_parsers[i])
+        for i in range(0,4):
+            self.parse_robot_file(robot_responses[i], robot_parsers[i])
         
-        #     sitemaps = robot_parsers[i].site_maps()
-        #     if sitemaps:
-        #         # print(f"REMOVING {robot_responses[i].url[:-11]}")
-        #         self.config.seed_urls.remove(robot_responses[i].url[:-11])
-        #         for map in sitemaps:
-        #             self.frontier.add_url(map)
+            # sitemaps = robot_parsers[i].site_maps()
+            # if sitemaps:
+            #     # print(f"REMOVING {robot_responses[i].url[:-11]}")
+            #     self.config.seed_urls.remove(robot_responses[i].url[:-11])
+            #     for map in sitemaps:
+            #         self.frontier.add_url(map)
         # print(f"++++++SEEDS: {[seed for seed in self.config.seed_urls]}")
 
 
