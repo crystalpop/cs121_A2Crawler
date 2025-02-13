@@ -17,35 +17,8 @@ http://vision.ics.uci.edu, 10 (not the actual number here)
 
 
 """
-ICS_RFP = RobotFileParser()
-CS_RFP = RobotFileParser()
-INF_RFP = RobotFileParser()
-STAT_RFP = RobotFileParser()
-print("setting robot parser urls")
-ICS_RFP.set_url("https://www.ics.uci.edu/robots.txt")
-CS_RFP.set_url("https://www.cs.uci.edu/robots.txt")
-# INF_RFP.set_url("https://www.informatics.uci.edu/robots.txt")
-STAT_RFP.set_url("https://www.stat.uci.edu/robots.txt")
 
-print("reading ics robot files")
-ICS_RFP.read()
-print("reading cs robot files")
-CS_RFP.read()
-# print("reading inf robot files")
-# INF_RFP.read()
-print("reading stat robot files")
-STAT_RFP.read()
-
-USER_AGENT = "IR UW25 93481481"
-
-# ROBOT_FILES = [
-#     "https://ics.uci.edu/robots.txt",
-#     "https://cs.uci.edu/robots.txt",
-#     "https://informatics.uci.edu/robots.txt",
-#     "https://stat.uci.edu/robots.txt"
-# ]
-
-
+USER_AGENT = "IR UW25 93481481,70321210,65332249,74612160"
 
 ALLOWED_DOMAINS = [
     r'.*\.ics\.uci\.edu',
@@ -82,13 +55,14 @@ stopwords = [
 ]
 
 
-def scraper(url, resp):
+def scraper(url, resp, robot_parsers):
     links = extract_next_links(url, resp)
     valid_links = set()
     for link in links:
-        if is_valid(link):
+        if is_valid(link, robot_parsers):
             valid_links.add(link)
-    if is_valid(url):
+    if is_valid(url, robot_parsers):
+        print(f"-----{url} IS VALID. PROCESSING NOW.-------")
         process_info(url, resp)
             
     return list(valid_links)
@@ -117,18 +91,18 @@ def extract_next_links(url, resp):
             text = soup.get_text()
 
             if "Content-Length" in resp.raw_response.headers:
-                file_bytes = int(resp.raw_response.headers["Content-Length"])
+                file_bytes = int(re.sub(r'\D', '', resp.raw_response.headers["Content-Length"]))
                 if file_bytes > 3000000 and len(text) < 200: #TODO: adjust threshold
                     print("*****LARGE FILE LOW INFO, SKIP*****")
                     return []
                 
-            # if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
-            for a in soup.find_all('a'):
-                href = a.get('href')
-                abs_url = urljoin(url, href) # resolve possible relative url to absolute url
-                result.add(urldefrag(abs_url)[0]) # defragment and add to result
-            # else:
-            #     print("*****NOT ENOUGH TEXT DATA*****")
+            if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
+                for a in soup.find_all('a'):
+                    href = a.get('href')
+                    abs_url = urljoin(url, href) # resolve possible relative url to absolute url
+                    result.add(urldefrag(abs_url)[0]) # defragment and add to result
+            else:
+                print("*****NOT ENOUGH TEXT DATA*****")
         else:
             print("------200 CODE BUT NO DATA--------")
 
@@ -283,7 +257,7 @@ def repeated_segments(path):
     return False
 
 
-def is_valid(url):
+def is_valid(url, robot_parsers):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -305,19 +279,19 @@ def is_valid(url):
 
         # robot.txt filters
         if re.match(ALLOWED_DOMAINS[0], domain):
-            if not ICS_RFP.can_fetch(USER_AGENT, url):
+            if not robot_parsers[0].can_fetch(USER_AGENT, url):
                 print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
         elif re.match(ALLOWED_DOMAINS[1], domain):
-            if not CS_RFP.can_fetch(USER_AGENT, url):
+            if not robot_parsers[1].can_fetch(USER_AGENT, url):
                 print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
-        # elif re.match(ALLOWED_DOMAINS[2], domain):
-        #     if not INF_RFP.can_fetch(USER_AGENT, url):
-        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
-        #         return False
+        elif re.match(ALLOWED_DOMAINS[2], domain):
+            if not robot_parsers[2].can_fetch(USER_AGENT, url):
+                print(f"{url} *****DISALLOWED IN ROBOTS*****")
+                return False
         elif re.match(ALLOWED_DOMAINS[3], domain):
-            if not STAT_RFP.can_fetch(USER_AGENT, url):
+            if not robot_parsers[3].can_fetch(USER_AGENT, url):
                 print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
 
@@ -326,7 +300,7 @@ def is_valid(url):
         if re.match(
             r".*\.(css|js|war|bmp|gif|jpe?g|ico"
             + r"|png|img|tiff?|mid|mp2|mp3|mp4"
-            + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+            + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
             + r"|data|dat|apk|sql|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
@@ -335,11 +309,11 @@ def is_valid(url):
             print(f'{url} has bad extension NOT VALID')
             return False
         
-        if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query):  # calendar pages
+        if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):  # calendar pages
             print(f'{url} contains calendar NOT VALID')
             return False 
         
-        if re.search(r"(tab_files=|do=media|image=|do=diff)", query): # media/dynamic/diff pages
+        if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=)", query): # media/dynamic/diff pages
             return False 
         
         if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
