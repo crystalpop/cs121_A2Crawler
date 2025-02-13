@@ -4,10 +4,6 @@ from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 
 
-# TODO: check for similarity & duplicates in extract_next_links
-# TODO: webpage content similarity repetition over a certain amount of chained pages (the threshold definition is up to you!
-# TODO: maybe have a prev variable & a similarity counter. compare current page vs prev page & if similarity is over 80?% don't crawl it. if similarity not over threshold, update prev to curr and curr to next
-
 """
 How many unique pages did you find? Uniqueness for the purposes of this assignment is ONLY established by the URL, but discarding the fragment part. So, for example, http://www.ics.uci.edu#aaa and http://www.ics.uci.edu#bbb are the same URL. Even if you implement additional methods for textual similarity detection, please keep considering the above definition of unique pages for the purposes of counting the unique pages in this assignment.
 What is the longest page in terms of the number of words? (HTML markup doesn’t count as words)
@@ -18,7 +14,7 @@ http://vision.ics.uci.edu, 10 (not the actual number here)
 
 """
 
-USER_AGENT = "IR UW25 93481481,70321210,65332249,74612160"
+# USER_AGENT = "IR UW25 93481481,70321210,65332249,74612160"
 
 ALLOWED_DOMAINS = [
     r'.*\.ics\.uci\.edu',
@@ -26,6 +22,9 @@ ALLOWED_DOMAINS = [
     r'.*\.informatics\.uci\.edu',
     r'.*\.stat\.uci\.edu'
 ]
+
+SIMHASH_THRESHOLD = 5
+simhash_set = set() 
 
 url_dict = {}   # key: url , value: dict of words with counts 
 
@@ -55,14 +54,13 @@ stopwords = [
 ]
 
 
-def scraper(url, resp, robot_parsers):
+def scraper(url, resp):
     links = extract_next_links(url, resp)
     valid_links = set()
     for link in links:
-        if is_valid(link, robot_parsers):
+        if is_valid(link):
             valid_links.add(link)
-    if is_valid(url, robot_parsers):
-        print(f"-----{url} IS VALID. PROCESSING NOW.-------")
+    if is_valid(url):
         process_info(url, resp)
             
     return list(valid_links)
@@ -73,7 +71,6 @@ source for absolute path resolution : https://blog.finxter.com/scraping-the-abso
 """
 def extract_next_links(url, resp):
     result = set()
-    # Implementation required.
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
@@ -95,6 +92,15 @@ def extract_next_links(url, resp):
                 if file_bytes > 3000000 and len(text) < 200: #TODO: adjust threshold
                     print("*****LARGE FILE LOW INFO, SKIP*****")
                     return []
+                    
+
+            simhash = compute_simhash(text)
+            if is_near_duplicate(simhash):
+                return []
+
+            simhash_set.add(tuple(simhash))
+            
+            
                 
             if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
                 for a in soup.find_all('a'):
@@ -111,6 +117,28 @@ def extract_next_links(url, resp):
 
     return list(result)
 
+
+def compute_simhash(text, bit_length=64):
+    vector = np.zeros(bit_length)
+    words = tokenize(text)
+    for word in words:
+        hash_value = hash(word) & ((1 << bit_length) - 1)
+        binary_array = np.array([1 if (hash_value >> i) & 1 else -1 for i in range(bit_length)])
+        vector += binary_array
+
+    return np.where(vector >= 0, 1, 0)
+
+def hamming_distance(h1, h2):
+    return np.sum(h1 != h2)
+
+def is_near_duplicate(simhash):
+    for existing_hash in simhash_set:
+        if hamming_distance(np.array(existing_hash), simhash) < SIMHASH_THRESHOLD:
+            return True
+    return False
+
+    
+
 #TODO: update this, missed points
 def tokenize(file_name):
     token_list = []
@@ -122,7 +150,6 @@ def tokenize(file_name):
             token_list.extend(re.findall(r"[0-9a-zA-Z]+", content))
     return token_list
 
-#TODO: update this, missed points
 def computeWordFrequencies(token_list):
     # empty dict
     token_frequencies = {}
@@ -159,6 +186,12 @@ def process_info(url, resp):
             print(f"Error saving content from {url} to file...")
 
 
+    # TODO: do we put it here AND extract_next, or only one of them?
+    # simhash = compute_simhash(clean_text)
+    # if is_near_duplicate(simhash):
+    #     return
+
+    # simhash_set.add(tuple(simhash))
 
     # TOKENIZING 
     token_list = tokenize("content.txt")
@@ -257,7 +290,7 @@ def repeated_segments(path):
     return False
 
 
-def is_valid(url, robot_parsers):
+def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -278,22 +311,22 @@ def is_valid(url, robot_parsers):
         
 
         # robot.txt filters
-        if re.match(ALLOWED_DOMAINS[0], domain):
-            if not robot_parsers[0].can_fetch(USER_AGENT, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
-                return False
-        elif re.match(ALLOWED_DOMAINS[1], domain):
-            if not robot_parsers[1].can_fetch(USER_AGENT, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
-                return False
-        elif re.match(ALLOWED_DOMAINS[2], domain):
-            if not robot_parsers[2].can_fetch(USER_AGENT, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
-                return False
-        elif re.match(ALLOWED_DOMAINS[3], domain):
-            if not robot_parsers[3].can_fetch(USER_AGENT, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
-                return False
+        # if re.match(ALLOWED_DOMAINS[0], domain):
+        #     if not robot_parsers[0].can_fetch(USER_AGENT, url):
+        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
+        #         return False
+        # elif re.match(ALLOWED_DOMAINS[1], domain):
+        #     if not robot_parsers[1].can_fetch(USER_AGENT, url):
+        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
+        #         return False
+        # elif re.match(ALLOWED_DOMAINS[2], domain):
+        #     if not robot_parsers[2].can_fetch(USER_AGENT, url):
+        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
+        #         return False
+        # elif re.match(ALLOWED_DOMAINS[3], domain):
+        #     if not robot_parsers[3].can_fetch(USER_AGENT, url):
+        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
+        #         return False
 
         
 
@@ -308,10 +341,17 @@ def is_valid(url, robot_parsers):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             print(f'{url} has bad extension NOT VALID')
             return False
+
+        if re.search(r"gitlab.ics.uci.edu", domain) and query:
+            print(f'{url} gitlab w/ query NOT VALID')
+            return False
         
         if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):  # calendar pages
             print(f'{url} contains calendar NOT VALID')
             return False 
+
+        if re.search(r"/datasets/", path):
+            print(f'{url} large data set NOT VALID')
         
         if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=)", query): # media/dynamic/diff pages
             return False 
