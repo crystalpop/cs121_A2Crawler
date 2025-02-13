@@ -69,7 +69,7 @@ class Worker(Thread):
         # parse each robots.txt file, if there are sitemaps, remove the from frontier and replace with sitemap
         # TODO: is this the right idea? do i add the sitemap to the seed urls instead?
         for i in range(0,4):
-            print(f"parsing {reobot_responses[i].url}................")
+            print(f"parsing {robot_responses[i].url}................")
             self.parse_robot_file(robot_responses[i], robot_parsers[i])
         
             sitemaps = robot_parsers[i].site_maps()
@@ -88,7 +88,7 @@ class Worker(Thread):
                 self.logger.info("Frontier is empty. Stopping Crawler.")
                 break
             # TODO: maybe check if valid here, but we already check in scraper too
-            if self.robot_allowed(robot_parsers, tbd_url) and is_valid(url):
+            if self.robot_allowed(robot_parsers, tbd_url) and scraper.is_valid(tbd_url):
                 resp = download(tbd_url, self.config, self.logger)
                 self.logger.info(
                     f"Downloaded {tbd_url}, status <{resp.status}>, "

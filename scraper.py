@@ -2,7 +2,7 @@ import re
 from urllib.parse import urlparse, urldefrag, urljoin
 from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
-
+import numpy as np
 
 """
 How many unique pages did you find? Uniqueness for the purposes of this assignment is ONLY established by the URL, but discarding the fragment part. So, for example, http://www.ics.uci.edu#aaa and http://www.ics.uci.edu#bbb are the same URL. Even if you implement additional methods for textual similarity detection, please keep considering the above definition of unique pages for the purposes of counting the unique pages in this assignment.
