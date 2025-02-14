@@ -351,7 +351,7 @@ def is_valid(url):
             r".*\.(css|js|war|bmp|gif|jpe?g|ico"
             + r"|png|img|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+            + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
             + r"|data|dat|apk|sql|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
@@ -367,7 +367,7 @@ def is_valid(url):
             print(f'{url} contains calendar NOT VALID')
             return False 
 
-        if re.search(r"/(datasets | files)/", path):
+        if re.search(r"/(datasets|files)/", path):
             print(f'{url} large data set NOT VALID')
         
         if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=|do=revisions)", query): # media/dynamic/diff pages
