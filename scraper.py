@@ -23,7 +23,7 @@ ALLOWED_DOMAINS = [
     r'.*\.stat\.uci\.edu'
 ]
 
-SIMHASH_THRESHOLD = 5
+SIMHASH_THRESHOLD = 4
 simhash_set = set() 
 
 url_dict = {}   # key: url , value: dict of words with counts 
@@ -55,6 +55,8 @@ stopwords = [
 
 
 def scraper(url, resp):
+    if url == "https://www.stat.uci.edu/wp-sitemap.xml":
+        print("SCRAPING SITEMAP")
     if resp.status >= 600 and resp.status <= 606:
         print(f"CACHE ERROR AT {url}!!!!")
         return []
@@ -83,6 +85,8 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     if (resp.status >= 200 and resp.status < 400) and resp.raw_response:
+            
+        
         html_doc = resp.raw_response.content
 
         # make sure page has content
@@ -103,13 +107,17 @@ def extract_next_links(url, resp):
 
             simhash_set.add(tuple(simhash))
             
-            
+                
                 
             if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
                 for a in soup.find_all('a'):
                     href = a.get('href')
                     abs_url = urljoin(url, href) # resolve possible relative url to absolute url
                     result.add(urldefrag(abs_url)[0]) # defragment and add to result
+                    if url == "https://www.stat.uci.edu/wp-sitemap.xml":
+                        print(f"FOLLOWING SITEMAP TO {abs_url}")
+                        with open("sitemap_path.txt", "a") as file:
+                            file.write(f"FOLLOWING SITEMAP TO {abs_url}")
             else:
                 print("*****NOT ENOUGH TEXT DATA*****")
         else:
@@ -117,7 +125,7 @@ def extract_next_links(url, resp):
 
     elif resp.status >= 600 and resp.status <= 606:
         print(f"***********\nERROR: {resp.error}\n*************")
-
+    print(f"---------EXTRACTED LINKS FROM {url}------------")
     return list(result)
 
 
@@ -359,10 +367,10 @@ def is_valid(url):
             print(f'{url} contains calendar NOT VALID')
             return False 
 
-        if re.search(r"/datasets/", path):
+        if re.search(r"/(datasets | files)/", path):
             print(f'{url} large data set NOT VALID')
         
-        if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=)", query): # media/dynamic/diff pages
+        if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=|do=revisions)", query): # media/dynamic/diff pages
             return False 
         
         if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
