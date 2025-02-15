@@ -72,13 +72,13 @@ class Worker(Thread):
             print(f"parsing {robot_responses[i].url}................")
             self.parse_robot_file(robot_responses[i], robot_parsers[i])
         
-            sitemaps = robot_parsers[i].site_maps()
-            if sitemaps:
-                print(f"REMOVING {robot_responses[i].url[:-11]}")
-                self.frontier.to_be_downloaded.remove(robot_responses[i].url[:-11])
-                for map in sitemaps:
-                    print(f"REPLACING WITH {map}")
-                    self.frontier.add_url(map)
+            # sitemaps = robot_parsers[i].site_maps()
+            # if sitemaps:
+            #     print(f"REMOVING {robot_responses[i].url[:-11]}")
+            #     self.frontier.to_be_downloaded.remove(robot_responses[i].url[:-11])
+            #     for map in sitemaps:
+            #         print(f"REPLACING WITH {map}")
+            #         self.frontier.add_url(map)
         # print(f"++++++SEEDS: {[seed for seed in self.config.seed_urls]}")
 
 
@@ -88,7 +88,7 @@ class Worker(Thread):
                 self.logger.info("Frontier is empty. Stopping Crawler.")
                 break
             # TODO: maybe check if valid here, but we already check in scraper too
-            if self.robot_allowed(robot_parsers, tbd_url) and scraper.is_valid(tbd_url):
+            if self.robot_allowed(robot_parsers, tbd_url):
                 resp = download(tbd_url, self.config, self.logger)
                 self.logger.info(
                     f"Downloaded {tbd_url}, status <{resp.status}>, "

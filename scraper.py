@@ -4,17 +4,6 @@ from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 import numpy as np
 
-"""
-How many unique pages did you find? Uniqueness for the purposes of this assignment is ONLY established by the URL, but discarding the fragment part. So, for example, http://www.ics.uci.edu#aaa and http://www.ics.uci.edu#bbb are the same URL. Even if you implement additional methods for textual similarity detection, please keep considering the above definition of unique pages for the purposes of counting the unique pages in this assignment.
-What is the longest page in terms of the number of words? (HTML markup doesn’t count as words)
-What are the 50 most common words in the entire set of pages crawled under these domains ? (Ignore English stop words, which can be found, for example, hereLinks to an external site.) Submit the list of common words ordered by frequency.
-How many subdomains did you find in the ics.uci.edu domain? Submit the list of subdomains ordered alphabetically and the number of unique pages detected in each subdomain. The content of this list should be lines containing URL, number, for example:
-http://vision.ics.uci.edu, 10 (not the actual number here)
-
-
-"""
-
-# USER_AGENT = "IR UW25 93481481,70321210,65332249,74612160"
 
 ALLOWED_DOMAINS = [
     r'.*\.ics\.uci\.edu',
@@ -33,6 +22,8 @@ url_word_count_dict = {} # key: url, value is # of words in it
 all_word_dict = {} # key is word, count is value
 
 subdomain_dict = {} # key: subdomain , value: set of unique urls within it 
+
+unique_urls = set()
 
 stopwords = [
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't",
@@ -55,10 +46,7 @@ stopwords = [
 
 
 def scraper(url, resp):
-    if url == "https://www.stat.uci.edu/wp-sitemap.xml":
-        print("SCRAPING SITEMAP")
-    if resp.status >= 600 and resp.status <= 606:
-        print(f"CACHE ERROR AT {url}!!!!")
+    if resp.status >= 400:
         return []
     links = extract_next_links(url, resp)
     valid_links = set()
@@ -66,6 +54,7 @@ def scraper(url, resp):
         if is_valid(link):
             valid_links.add(link)
     if is_valid(url):
+        unique_urls.add(url)
         process_info(url, resp)
             
     return list(valid_links)
@@ -110,10 +99,13 @@ def extract_next_links(url, resp):
                 
                 
             if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
+                # print(f"---------EXTRACTING LINKS FROM {url}------------")
                 for a in soup.find_all('a'):
                     href = a.get('href')
                     abs_url = urljoin(url, href) # resolve possible relative url to absolute url
-                    result.add(urldefrag(abs_url)[0]) # defragment and add to result
+                    defragged = urldefrag(abs_url)[0]
+                    result.add(defragged) # defragment and add to result
+                    unique_urls.add(defragged)
                     if url == "https://www.stat.uci.edu/wp-sitemap.xml":
                         print(f"FOLLOWING SITEMAP TO {abs_url}")
                         with open("sitemap_path.txt", "a") as file:
@@ -125,7 +117,6 @@ def extract_next_links(url, resp):
 
     elif resp.status >= 600 and resp.status <= 606:
         print(f"***********\nERROR: {resp.error}\n*************")
-    print(f"---------EXTRACTED LINKS FROM {url}------------")
     return list(result)
 
 
@@ -173,7 +164,8 @@ def computeWordFrequencies(token_list):
     # if dict does not contain token, add it. else, increment value.
     for token in token_list:
         if token not in token_frequencies:
-            token_frequencies[token] = 1
+            if len(token) >= 3 and token.isalpha():
+                token_frequencies[token] = 1
         else:
             token_frequencies[token] += 1
     return token_frequencies
@@ -252,7 +244,7 @@ def write_final_output():
     try:
         with open("finaloutput.txt", "w") as outputfile:
             outputfile.write(f"Answer 1: \n")
-            outputfile.write(f"Number of unique pages: {len(url_dict)}\n\n")
+            outputfile.write(f"Number of unique pages: {len(url_dict)} valid VS. {len(unique_urls)} total\n\n")
 
             sorted__url_word_count_dict = dict(sorted(url_word_count_dict.items(), key=lambda item: item[1], reverse=True))
             longest_page = next(iter(sorted__url_word_count_dict), None)
@@ -346,22 +338,35 @@ def is_valid(url):
         #         return False
 
         
+        
+        # if re.match(
+        #     r".*\.(css|js|war|bmp|gif|jpe?g|ico"
+        #     + r"|png|img|tiff?|mid|mp2|mp3|mp4"
+        #     + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
+        #     + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
+        #     + r"|data|dat|apk|sql|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+        #     + r"|epub|dll|cnf|tgz|sha1"
+        #     + r"|thmx|mso|arff|rtf|jar|csv"
+        #     + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+        #     print(f'{url} has bad extension NOT VALID')
+        #     return False
 
-        if re.match(
-            r".*\.(css|js|war|bmp|gif|jpe?g|ico"
+        if re.search(
+            r"\.(css|js|bam|war|bmp|gif|jpe?g|ico"
             + r"|png|img|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
             + r"|data|dat|apk|sql|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", 
+            parsed.path.lower() + parsed.query.lower()):
             print(f'{url} has bad extension NOT VALID')
             return False
 
-        # if re.search(r"gitlab.ics.uci.edu", domain) and query:
-        #     print(f'{url} gitlab w/ query NOT VALID')
-        #     return False
+        if re.search(r"gitlab.ics.uci.edu", domain) and (query or re.search(r"/(commit|tree)/", path)):
+            print(f'{url} gitlab NOT VALID')
+            return False
         
         if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):  # calendar pages
             print(f'{url} contains calendar NOT VALID')
