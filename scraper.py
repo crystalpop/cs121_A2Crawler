@@ -300,7 +300,7 @@ def is_valid(url):
             return False
 
         if re.search(
-            r"\.(css|js|bam|war|bmp|gif|jpe?g|ico"
+            r"\.(css|js|bam|war|bmp|gif|jpe?g|lif|ico"
             + r"|png|img|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
