@@ -88,7 +88,7 @@ def extract_next_links(url, resp):
             if "Content-Length" in resp.raw_response.headers:
                 file_bytes = int(re.sub(r'\D', '', resp.raw_response.headers["Content-Length"]))
                 # Thresholds are 5 MB and 250 characters
-                if file_bytes > 5000000 and len(text) < 250:
+                if file_bytes > 3000000 and len(text) < 250:
                     # print("*****LARGE FILE LOW INFO, SKIP*****")
                     return []
                     
