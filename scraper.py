@@ -23,7 +23,6 @@ all_word_dict = {} # key is word, count is value
 
 subdomain_dict = {} # key: subdomain , value: set of unique urls within it 
 
-unique_urls = set()
 
 stopwords = [
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't",
@@ -46,22 +45,24 @@ stopwords = [
 
 
 def scraper(url, resp):
+    # Ignore any urls that return error codes
     if resp.status >= 400:
         return []
     links = extract_next_links(url, resp)
     valid_links = set()
+    # We only want to scrape valid links
     for link in links:
         if is_valid(link):
             valid_links.add(link)
+    # Analyzing the url if valid for final output
     if is_valid(url):
-        unique_urls.add(url)
         process_info(url, resp)
             
     return list(valid_links)
 
 
 """
-source for absolute path resolution : https://blog.finxter.com/scraping-the-absolute-url-of-instead-of-the-relative-path-using-beautifulsoup/
+Source for absolute path resolution : https://blog.finxter.com/scraping-the-absolute-url-of-instead-of-the-relative-path-using-beautifulsoup/
 """
 def extract_next_links(url, resp):
     result = set()
@@ -73,52 +74,48 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    if (resp.status >= 200 and resp.status < 400) and resp.raw_response:
-            
-        
-        html_doc = resp.raw_response.content
 
-        # make sure page has content
+    # Check for valid status codes & existence of raw_response
+    if (resp.status >= 200 and resp.status < 400) and resp.raw_response:
+        html_doc = resp.raw_response.content
+        # Make sure page has content
         if len(html_doc) > 0:
             soup = BeautifulSoup(html_doc, "lxml")
             text = soup.get_text()
 
+            # Checking for large file & low information value
             if "Content-Length" in resp.raw_response.headers:
                 file_bytes = int(re.sub(r'\D', '', resp.raw_response.headers["Content-Length"]))
-                if file_bytes > 3000000 and len(text) < 200: #TODO: adjust threshold
-                    print("*****LARGE FILE LOW INFO, SKIP*****")
+                # Thresholds are 5 MB and 250 characters
+                if file_bytes > 5000000 and len(text) < 250:
+                    # print("*****LARGE FILE LOW INFO, SKIP*****")
                     return []
                     
-
+            # Checking for duplicates
             simhash = compute_simhash(text)
             if is_near_duplicate(simhash):
                 return []
-
+            # Adding to simhash_set for future reference if duplicate not found
             simhash_set.add(tuple(simhash))
             
-                
-                
-            if len(text) >= 200: # TODO: what should be the threshold? if not enough text, skip it
-                # print(f"---------EXTRACTING LINKS FROM {url}------------")
+            # Threshold for low text data is 250 characters (about 50 words)
+            if len(text) >= 250:
                 for a in soup.find_all('a'):
                     href = a.get('href')
-                    abs_url = urljoin(url, href) # resolve possible relative url to absolute url
+                    # resolve possible relative url to absolute url
+                    abs_url = urljoin(url, href) 
+                    # defragment and add to result
                     defragged = urldefrag(abs_url)[0]
-                    result.add(defragged) # defragment and add to result
-                    unique_urls.add(defragged)
-                    if url == "https://www.stat.uci.edu/wp-sitemap.xml":
-                        print(f"FOLLOWING SITEMAP TO {abs_url}")
-                        with open("sitemap_path.txt", "a") as file:
-                            file.write(f"FOLLOWING SITEMAP TO {abs_url}")
-            else:
-                print("*****NOT ENOUGH TEXT DATA*****")
-        else:
-            print("------200 CODE BUT NO DATA--------")
+                    result.add(defragged)
 
     elif resp.status >= 600 and resp.status <= 606:
         print(f"***********\nERROR: {resp.error}\n*************")
+
     return list(result)
 
+
+
+"""SIMHASH METHODS"""
 
 def compute_simhash(text, bit_length=64):
     try:
@@ -141,13 +138,13 @@ def hamming_distance(h1, h2):
 def is_near_duplicate(simhash):
     for existing_hash in simhash_set:
         if hamming_distance(np.array(existing_hash), simhash) < SIMHASH_THRESHOLD:
-            print(f"--------FOUND NEAR DUPLICATE--------")
+            # print(f"--------FOUND NEAR DUPLICATE--------")
             return True
     return False
 
-    
 
-#TODO: update this, missed points
+"""ANALYSIS & FINAL REPORT METHODS"""
+    
 def tokenize(file_name):
     token_list = []
     with open(file_name, 'r') as file:
@@ -170,10 +167,9 @@ def computeWordFrequencies(token_list):
             token_frequencies[token] += 1
     return token_frequencies
 
-
 def process_info(url, resp):
 
-    #STRIP these just to be safe 
+    # STRIP these just to be safe 
  
     clean_url = urldefrag(resp.url)[0].strip()   # the unique url w/o the fragement 
     
@@ -225,7 +221,6 @@ def process_info(url, resp):
             subdomain_dict[url_subdomain].add(clean_url)
     
 
-
 def write_final_output():
 
     try:
@@ -266,6 +261,8 @@ def write_final_output():
         print(e)
 
 
+"""VALIDITY TESTING METHODS"""
+
 def repeated_segments(path):
     # Split the path into non-empty segments
     segments = [seg for seg in path.split('/') if seg]
@@ -278,7 +275,7 @@ def repeated_segments(path):
             group = segments[i:i+group_len]
             next_group = segments[i+group_len:i+2*group_len]
             if group == next_group:
-                print(f"Found repeated group {group} in segments: {segments}")
+                # print(f"Found repeated group {group} in segments: {segments}")
                 return True
     return False
 
@@ -302,20 +299,6 @@ def is_valid(url):
             # print(f"{url} bad domain NOT VALID")
             return False
 
-        
-        
-        # if re.match(
-        #     r".*\.(css|js|war|bmp|gif|jpe?g|ico"
-        #     + r"|png|img|tiff?|mid|mp2|mp3|mp4"
-        #     + r"|wav|avi|mov|mpeg|mpg|ram|m4v|mkv|ogg|ogv|pdf"
-        #     + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
-        #     + r"|data|dat|apk|sql|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
-        #     + r"|epub|dll|cnf|tgz|sha1"
-        #     + r"|thmx|mso|arff|rtf|jar|csv"
-        #     + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
-        #     print(f'{url} has bad extension NOT VALID')
-        #     return False
-
         if re.search(
             r"\.(css|js|bam|war|bmp|gif|jpe?g|ico"
             + r"|png|img|tiff?|mid|mp2|mp3|mp4"
@@ -326,29 +309,37 @@ def is_valid(url):
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", 
             parsed.path.lower() + parsed.query.lower()):
-            print(f'{url} has bad extension NOT VALID')
+            # print(f'{url} has bad extension NOT VALID')
             return False
 
+        # Check for individual commits in gitlab
         if re.search(r"gitlab.ics.uci.edu", domain) and (re.search(r"/(commit|tree)/", path)):
-            print(f'{url} gitlab NOT VALID')
+            # print(f'{url} gitlab NOT VALID')
             return False
         
-        if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):  # calendar pages
-            print(f'{url} contains calendar NOT VALID')
+        # Check for calendar pages
+        if re.search(r"\d{4}-\d{2}-\d{2}", path) or re.search(r"\d{4}-\d{2}", path) or re.search(r"date=\d{4}-\d{2}-\d{2}", query) or re.search(r"ical=1", query):
+            # print(f'{url} contains calendar NOT VALID')
             return False 
 
-        if re.search(r"/(datasets|files)/", path):
-            print(f'{url} large data set NOT VALID')
+        # Try to avoid large datasets
+        if re.search(r"/(datasets|dataset|files)/", path):
+            # print(f'{url} large data set NOT VALID')
+            return False
         
-        if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=|do=revisions)", query): # media/dynamic/diff pages
+        # Check for media/dynamic/diff/revision pages
+        if re.search(r"(tab_files=|do=media|image=|do=diff|action=diff|version=|ver=|do=edit|rev=|do=revisions)", query): 
             return False 
         
-        if re.search(r"[?&]page=\d+", parsed.query):    #ignore pagination links
+        # Avoid pagination links
+        if re.search(r"[?&]page=\d+", parsed.query):    
             return False  
 
-        if re.search(r"session|sid|track|utm_", parsed.query, re.IGNORECASE):   # ignore tracking params
+        # Avoid tracking params
+        if re.search(r"session|sid|track|utm_", parsed.query, re.IGNORECASE):   
             return False
         
+        # Avoid repeated patterns in paths
         if repeated_segments(path):
             return False
 

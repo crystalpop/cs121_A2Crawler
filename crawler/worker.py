@@ -21,6 +21,7 @@ class Worker(Thread):
         assert {getsource(scraper).find(req) for req in {"from urllib.request import", "import urllib.request"}} == {-1}, "Do not use urllib.request in scraper.py"
         super().__init__(daemon=True)
     
+    # For parsing robots.txt files after downloading
     def parse_robot_file(self, resp, robot_parser):
         if resp.status == 200:
             if resp.raw_response:
@@ -28,50 +29,50 @@ class Worker(Thread):
                 lines = resp.raw_response.content.decode("utf-8").splitlines()
                 robot_parser.parse(lines)
 
+    # Checks each domain, returns True if the robot_parser.can_fetch, False if not. 
     def robot_allowed(self, robot_parsers, url):
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
         if re.match(scraper.ALLOWED_DOMAINS[0], domain):
             if not robot_parsers[0].can_fetch(self.config.user_agent, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
+                # print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
         elif re.match(scraper.ALLOWED_DOMAINS[1], domain):
             if not robot_parsers[1].can_fetch(self.config.user_agent, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
+                # print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
         elif re.match(scraper.ALLOWED_DOMAINS[2], domain):
             if not robot_parsers[2].can_fetch(self.config.user_agent, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
+                # print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
         elif re.match(scraper.ALLOWED_DOMAINS[3], domain):
             if not robot_parsers[3].can_fetch(self.config.user_agent, url):
-                print(f"{url} *****DISALLOWED IN ROBOTS*****")
+                # print(f"{url} *****DISALLOWED IN ROBOTS*****")
                 return False
         return True
 
     def run(self):
-        # download the robots.txt files for each domain
-        print("downloading robots...............")
+        # Download the robots.txt files for each domain
         ics_resp = download("https://www.ics.uci.edu/robots.txt", self.config)
         cs_resp = download("https://www.cs.uci.edu/robots.txt", self.config)
         inf_resp = download("https://www.informatics.uci.edu/robots.txt", self.config)
         stat_resp = download("https://www.stat.uci.edu/robots.txt", self.config)
         robot_responses = [ics_resp, cs_resp, inf_resp, stat_resp]
 
-        # create a robot file parser for each robots.txt file
+        # Create a robot file parser for each robots.txt file
         ICS_RP = RobotFileParser()
         CS_RP = RobotFileParser()
         INF_RP = RobotFileParser()
         STAT_RP = RobotFileParser()
-
         robot_parsers = [ICS_RP, CS_RP, INF_RP, STAT_RP]
 
-        # parse each robots.txt file, if there are sitemaps, remove the from frontier and replace with sitemap
-        # TODO: is this the right idea? do i add the sitemap to the seed urls instead?
+        # Parse each robots.txt file 
         for i in range(0,4):
-            print(f"parsing {robot_responses[i].url}................")
             self.parse_robot_file(robot_responses[i], robot_parsers[i])
-        
+            
+            """Attempt at checking sitemaps: 
+                If there are sitemaps for this domain, remove the original domain from 
+                frontier and replace with the sitemap."""
             # sitemaps = robot_parsers[i].site_maps()
             # if sitemaps:
             #     print(f"REMOVING {robot_responses[i].url[:-11]}")
@@ -79,7 +80,6 @@ class Worker(Thread):
             #     for map in sitemaps:
             #         print(f"REPLACING WITH {map}")
             #         self.frontier.add_url(map)
-        # print(f"++++++SEEDS: {[seed for seed in self.config.seed_urls]}")
 
 
         while True:
@@ -87,7 +87,7 @@ class Worker(Thread):
             if not tbd_url:
                 self.logger.info("Frontier is empty. Stopping Crawler.")
                 break
-            # TODO: maybe check if valid here, but we already check in scraper too
+            # Only download url if allowed in robots.txt
             if self.robot_allowed(robot_parsers, tbd_url):
                 resp = download(tbd_url, self.config, self.logger)
                 self.logger.info(
