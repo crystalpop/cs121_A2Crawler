@@ -195,13 +195,6 @@ def process_info(url, resp):
             print(f"Error saving content from {url} to file...")
 
 
-    # TODO: do we put it here AND extract_next, or only one of them?
-    # simhash = compute_simhash(clean_text)
-    # if is_near_duplicate(simhash):
-    #     return
-
-    # simhash_set.add(tuple(simhash))
-
     # TOKENIZING 
     token_list = tokenize("content.txt")
     word_count_dict = computeWordFrequencies(token_list)
@@ -230,12 +223,6 @@ def process_info(url, resp):
             if url_subdomain not in subdomain_dict:
                 subdomain_dict[url_subdomain] = set()
             subdomain_dict[url_subdomain].add(clean_url)
-
-    try:
-        with open("urllog.txt", "a") as log_file:  # Open in append mode
-            log_file.write(f"{clean_url} - Page Length: {url_word_count_dict[clean_url]} words\n")
-    except Exception as e:
-        print(f"Error writing log for {clean_url}: {e}")
     
 
 
@@ -244,14 +231,11 @@ def write_final_output():
     try:
         with open("finaloutput.txt", "w") as outputfile:
             outputfile.write(f"Answer 1: \n")
-            outputfile.write(f"Number of unique pages: {len(url_dict)} valid VS. {len(unique_urls)} total\n\n")
+            outputfile.write(f"Number of unique pages: {len(url_dict)}\n")
 
             sorted__url_word_count_dict = dict(sorted(url_word_count_dict.items(), key=lambda item: item[1], reverse=True))
             longest_page = next(iter(sorted__url_word_count_dict), None)
             words_in_longest_page = sorted__url_word_count_dict.get(longest_page, 0)
-
-            #longest_page = list(sorted__url_word_count_dict.keys())[0] 
-            #words_in_longest_page = list(sorted__url_word_count_dict.values())[0] 
 
             outputfile.write(f"Answer 2: \n")
             outputfile.write(f"Longest page: {longest_page} with {words_in_longest_page} words\n\n") 
@@ -273,8 +257,8 @@ def write_final_output():
             outputfile.write(f"Number of subdomains found within ics.uci.edu: {unique_subdomain_count}\n")
             outputfile.write(f"Subdomains with count of unique pages within each: \n")
 
-            for key, val in subdomain_dict.items():
-                count = len(val)
+            for key in sorted(subdomain_dict):
+                count = len(subdomain_dict[key])
                 outputfile.write(f"{key}: {count}\n")
 
 
@@ -317,25 +301,6 @@ def is_valid(url):
         if not any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS):
             # print(f"{url} bad domain NOT VALID")
             return False
-        
-
-        # robot.txt filters
-        # if re.match(ALLOWED_DOMAINS[0], domain):
-        #     if not robot_parsers[0].can_fetch(USER_AGENT, url):
-        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
-        #         return False
-        # elif re.match(ALLOWED_DOMAINS[1], domain):
-        #     if not robot_parsers[1].can_fetch(USER_AGENT, url):
-        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
-        #         return False
-        # elif re.match(ALLOWED_DOMAINS[2], domain):
-        #     if not robot_parsers[2].can_fetch(USER_AGENT, url):
-        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
-        #         return False
-        # elif re.match(ALLOWED_DOMAINS[3], domain):
-        #     if not robot_parsers[3].can_fetch(USER_AGENT, url):
-        #         print(f"{url} *****DISALLOWED IN ROBOTS*****")
-        #         return False
 
         
         
@@ -364,7 +329,7 @@ def is_valid(url):
             print(f'{url} has bad extension NOT VALID')
             return False
 
-        if re.search(r"gitlab.ics.uci.edu", domain) and (query or re.search(r"/(commit|tree)/", path)):
+        if re.search(r"gitlab.ics.uci.edu", domain) and (re.search(r"/(commit|tree)/", path)):
             print(f'{url} gitlab NOT VALID')
             return False
         
