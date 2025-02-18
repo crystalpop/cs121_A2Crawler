@@ -66,6 +66,7 @@ Source for absolute path resolution : https://blog.finxter.com/scraping-the-abso
 """
 def extract_next_links(url, resp):
     result = set()
+
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
@@ -292,7 +293,6 @@ def is_valid(url):
         query = parsed.query
 
         if parsed.scheme not in set(["http", "https"]):
-            # print(f"{url} bad scheme NOT VALID")
             return False
         
         if not any(re.match(pattern, domain) for pattern in ALLOWED_DOMAINS):
